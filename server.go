@@ -29,9 +29,25 @@ type Err struct {
 }
 
 func getExpenseHandler(c echo.Context) error {
+	id := c.Param("id")
+	stmt, err := db.Prepare("SELECT id,title,amount,note,tags FROM expenses WHERE id = $1")
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, Err{Message: "can't prepare query expenses statment:" + err.Error()})
+	}
 
-	return c.JSON(http.StatusOK, "OK")
+	rows := stmt.QueryRow(id)
+	t := Expense{}
 
+	err = rows.Scan(&t.Id, &t.Title, &t.Amount, &t.Note, pq.Array(&t.Tags))
+
+	switch err {
+	case sql.ErrNoRows:
+		return c.JSON(http.StatusNotFound, Err{Message: "expenses not found"})
+	case nil:
+		return c.JSON(http.StatusOK, t)
+	default:
+		return c.JSON(http.StatusInternalServerError, Err{Message: "can't scan expenses:" + err.Error()})
+	}
 }
 
 func updateExpenseHandler(c echo.Context) error {
