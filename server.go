@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strconv"
 	"time"
 
 	"github.com/labstack/echo/v4"
@@ -51,8 +52,30 @@ func getExpenseHandler(c echo.Context) error {
 }
 
 func updateExpenseHandler(c echo.Context) error {
+	id := c.Param("id")
+	stmt, err := db.Prepare("UPDATE expenses SET title=$2,amount=$3,note= $4,tags=$5 WHERE id = $1  ; ")
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, Err{Message: "can't prepare update expenses statment:" + err.Error()})
+	}
 
-	return c.JSON(http.StatusOK, "OK")
+	var t Expense
+	err = c.Bind(&t)
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, Err{Message: err.Error()})
+	}
+
+	if _, err := stmt.Exec(id, t.Title, t.Amount, t.Note, pq.Array(t.Tags)); err != nil {
+		return c.JSON(http.StatusInternalServerError, Err{Message: "error execute update:" + err.Error()})
+	}
+
+	fmt.Println("update success")
+
+	t.Id, err = strconv.Atoi(id)
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, Err{Message: "can't convert id to int :" + err.Error()})
+	}
+
+	return c.JSON(http.StatusCreated, t)
 
 }
 
