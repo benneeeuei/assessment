@@ -12,6 +12,7 @@ import (
 
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
+	"github.com/lib/pq"
 	_ "github.com/lib/pq"
 )
 
@@ -46,9 +47,19 @@ func getExpensesHandler(c echo.Context) error {
 }
 
 func createExpensesHandler(c echo.Context) error {
+	var t Expense
+	err := c.Bind(&t)
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, Err{Message: err.Error()})
+	}
 
-	return c.JSON(http.StatusOK, "OK")
+	row := db.QueryRow("INSERT INTO expenses (title, amount, note , tags ) values ($1, $2, $3 ,$4)  RETURNING id", t.Title, t.Amount, t.Note, pq.Array(t.Tags))
+	err = row.Scan(&t.Id)
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, Err{Message: err.Error()})
+	}
 
+	return c.JSON(http.StatusCreated, t)
 }
 
 var db *sql.DB
